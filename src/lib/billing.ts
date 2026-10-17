@@ -4,6 +4,7 @@ import { signIn } from './auth';
 export interface BillingStatus {
   configured: boolean;
   active: boolean;
+  unlimited?: boolean;
   status: string;
   used: number;
   limit: number;
