@@ -99,15 +99,15 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             <div className="flex items-start gap-3">
               <CreditCard className="text-emerald-400" />
               <div>
-                <p className="font-semibold text-white">EZ Copyright Membership</p>
+                <p className="font-semibold text-white">{billing.unlimited ? 'VIP Owner Membership — Unlimited' : 'EZ Copyright Membership'}</p>
                 <p className="text-sm text-white/55">
-                  {billing.remaining} of {billing.limit} evidence records remaining this billing month
+                  {billing.unlimited ? 'Unlimited private evidence records' : `${billing.remaining} of ${billing.limit} evidence records remaining this billing month`}
                 </p>
               </div>
             </div>
-            <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">
+            {!billing.unlimited && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">
               Manage Billing
-            </button>
+            </button>}
           </div>
         )}
         <div className="mb-8">
