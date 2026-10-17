@@ -83,7 +83,12 @@ export default function App() {
       });
 
     const unsubscribe = subscribeToAuthChanges((user) => {
-      setAuthUser(user);
+      setAuthUser((previous) => {
+        if (previous?.id === user?.id && previous?.email === user?.email) {
+          return previous;
+        }
+        return user;
+      });
     });
 
     return () => {
