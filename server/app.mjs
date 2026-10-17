@@ -320,7 +320,7 @@ export function createApp({
       response.status(402).json({ error: 'subscription_required', billing: status, requestId: request.id });
       return false;
     }
-    if (status.remaining < 1) {
+    if (!status.unlimited && status.remaining < 1) {
       response.status(429).json({ error: 'monthly_registration_limit_reached', billing: status, requestId: request.id });
       return false;
     }
