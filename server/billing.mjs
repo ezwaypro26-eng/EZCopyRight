@@ -187,7 +187,18 @@ export function createStripeBilling(config) {
         throw error;
       }
     },
-    async status(database, userId) {
+    async status(database, userId, email = '') {
+      const isOwner = Boolean(userId) && (
+        (config.ownerUserIds || []).includes(userId)
+        || (Boolean(email) && (config.ownerEmails || []).includes(email.trim().toLowerCase()))
+      );
+      if (isOwner) {
+        return {
+          configured: Boolean(stripe && config.stripePriceId), active: true,
+          status: 'owner_vip', used: 0, limit: -1, remaining: -1, unlimited: true,
+          currentPeriodEnd: null, cancelAtPeriodEnd: false,
+        };
+      }
       const result = await database.query('SELECT * FROM billing_customers WHERE user_id=$1', [userId]);
       const row = result.rows[0];
       const active = Boolean(row && ACTIVE_STATUSES.has(row.subscription_status));
@@ -197,7 +208,7 @@ export function createStripeBilling(config) {
         : { rows: [{ count: 0 }] };
       const used = Number(usage.rows[0].count);
       return {
-        configured: Boolean(stripe && config.stripePriceId), active,
+        configured: Boolean(stripe && config.stripePriceId), active, unlimited: false,
         status: row?.subscription_status || 'inactive', used,
         limit: config.monthlyRegistrationLimit, remaining: Math.max(0, config.monthlyRegistrationLimit - used),
         currentPeriodEnd: row?.current_period_end ? new Date(row.current_period_end).toISOString() : null,

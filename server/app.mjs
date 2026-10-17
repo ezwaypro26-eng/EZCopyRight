@@ -292,7 +292,7 @@ export function createApp({
   }));
 
   app.get('/v1/billing/status', authenticate, asyncRoute(async (request, response) => {
-    response.json(await billing.status(database, request.auth.userId));
+    response.json(await billing.status(database, request.auth.userId, request.auth.email));
   }));
 
   app.post('/v1/billing/checkout', authenticate, writeLimiter, asyncRoute(async (request, response) => {
@@ -315,12 +315,12 @@ export function createApp({
   }));
 
   async function requireRegistrationAllowance(request, response) {
-    const status = await billing.status(database, request.auth.userId);
+    const status = await billing.status(database, request.auth.userId, request.auth.email);
     if (!status.active) {
       response.status(402).json({ error: 'subscription_required', billing: status, requestId: request.id });
       return false;
     }
-    if (status.remaining < 1) {
+    if (!status.unlimited && status.remaining < 1) {
       response.status(429).json({ error: 'monthly_registration_limit_reached', billing: status, requestId: request.id });
       return false;
     }
