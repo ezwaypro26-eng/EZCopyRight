@@ -221,7 +221,7 @@ export default function App() {
       beginAuth(target);
       return;
     }
-    if (target === 'register' && billing && !billing.active && !billing.freeRedeemed) {
+    if (target === 'register' && billing && billing.remaining <= 0) {
       setPage('dashboard');
       return;
     }
