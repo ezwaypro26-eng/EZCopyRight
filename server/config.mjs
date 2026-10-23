@@ -85,6 +85,8 @@ export function loadConfig(environment = process.env) {
     stripeSecretKey: environment.STRIPE_SECRET_KEY?.trim() || '',
     stripeWebhookSecret: environment.STRIPE_WEBHOOK_SECRET?.trim() || '',
     stripePriceId: environment.STRIPE_PRICE_ID?.trim() || '',
+    mailerliteApiKey: environment.MAILERLITE_API_KEY?.trim() || '',
+    mailerliteGroupId: environment.MAILERLITE_GROUP_ID?.trim() || '',
     monthlyRegistrationLimit: Number.parseInt(environment.MONTHLY_REGISTRATION_LIMIT || '5', 10),
     authMode,
     authProvider: environment.AUTH_PROVIDER?.trim() || 'ezid',
