@@ -348,10 +348,34 @@ export function createApp({
     response.status(201).json({ url: session.url });
   }));
 
+  app.post('/v1/free/redeem', authenticate, writeLimiter, asyncRoute(async (request, response) => {
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim().toUpperCase() : '';
+    if (code !== 'FREE3') {
+      response.status(400).json({ error: 'invalid_free_code', requestId: request.id });
+      return;
+    }
+    const current = await billing.status(database, request.auth.userId);
+    if (current.active) {
+      response.status(409).json({ error: 'premium_already_active', requestId: request.id });
+      return;
+    }
+    if (current.freeRedeemed) {
+      response.status(409).json({ error: 'free_code_already_redeemed', billing: current, requestId: request.id });
+      return;
+    }
+    // Existing records count toward the three complimentary records.
+    await database.query(
+      "INSERT INTO free_promo_redemptions (user_id, code) VALUES ($1, 'FREE3') ON CONFLICT DO NOTHING",
+      [request.auth.userId],
+    );
+    const result = await billing.status(database, request.auth.userId);
+    response.json({ redeemed: true, billing: result });
+  }));
+
   async function requireRegistrationAllowance(request, response) {
     const status = await billing.status(database, request.auth.userId);
-    if (!status.active) {
-      response.status(402).json({ error: 'subscription_required', billing: status, requestId: request.id });
+    if (!status.active && !status.freeRedeemed) {
+      response.status(402).json({ error: 'subscription_or_free3_required', billing: status, requestId: request.id });
       return false;
     }
     if (status.remaining < 1) {
