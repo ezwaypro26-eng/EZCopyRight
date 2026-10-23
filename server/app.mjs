@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { z } from 'zod';
 import { readEasyAuthIdentity } from './auth.mjs';
+import { subscribeConsentedCreator } from './mailerlite.mjs';
 
 const STATIC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
@@ -276,6 +277,39 @@ export function createApp({
   app.get('/v1/me', authenticate, (request, response) => {
     response.json({ id: request.auth.userId, email: request.auth.email });
   });
+
+  // Only an authenticated user explicitly opting into marketing may enter MailerLite.
+  // The email comes from the verified identity, never the request body.
+  app.post('/v1/marketing/subscribe', authenticate, writeLimiter, asyncRoute(async (request, response) => {
+    if (request.body?.consent !== true) {
+      response.status(400).json({ error: 'marketing_consent_required', requestId: request.id });
+      return;
+    }
+    if (!config.mailerliteApiKey || !config.mailerliteGroupId) {
+      response.status(503).json({ error: 'marketing_unavailable', requestId: request.id });
+      return;
+    }
+    const status = await billing.status(database, request.auth.userId);
+    if (status.active) {
+      response.status(409).json({ error: 'premium_already_active', requestId: request.id });
+      return;
+    }
+    try {
+      await subscribeConsentedCreator({
+        email: request.auth.email,
+        apiKey: config.mailerliteApiKey,
+        groupId: config.mailerliteGroupId,
+      });
+      await recordAudit(database, request, 'marketing.subscribed', 'newsletter', 'ezway-free-signups', {
+        consent: true, source: 'signed_in_dashboard',
+      });
+      response.json({ subscribed: true });
+    } catch (error) {
+      const code = error.message === 'subscriber_requires_resubscription' ? 409
+        : error.message === 'verified_email_required' ? 400 : 502;
+      response.status(code).json({ error: error.message, requestId: request.id });
+    }
+  }));
 
   app.get('/v1/agent/access', authenticate, (request, response) => {
     response.json({ allowed: isAgentAdmin(request) });
