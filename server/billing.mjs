@@ -195,11 +195,18 @@ export function createStripeBilling(config) {
       const usage = active
         ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1 AND date_registered >= $2', [userId, periodStart])
         : { rows: [{ count: 0 }] };
-      const used = Number(usage.rows[0].count);
+      const free = await database.query('SELECT 1 FROM free_promo_redemptions WHERE user_id=$1', [userId]);
+      const freeRedeemed = free.rows.length > 0;
+      const freeUsage = !active && freeRedeemed
+        ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1', [userId])
+        : { rows: [{ count: 0 }] };
+      const used = active ? Number(usage.rows[0].count) : Number(freeUsage.rows[0].count);
+      const limit = active ? config.monthlyRegistrationLimit : freeRedeemed ? 3 : 0;
       return {
-        configured: Boolean(stripe && config.stripePriceId), active,
-        status: row?.subscription_status || 'inactive', used,
-        limit: config.monthlyRegistrationLimit, remaining: Math.max(0, config.monthlyRegistrationLimit - used),
+        configured: Boolean(stripe && config.stripePriceId),
+        active, freeRedeemed, plan: active ? 'premium' : freeRedeemed ? 'free3' : 'none',
+        status: row?.subscription_status || 'inactive', used, limit,
+        remaining: Math.max(0, limit - used),
         currentPeriodEnd: row?.current_period_end ? new Date(row.current_period_end).toISOString() : null,
         cancelAtPeriodEnd: Boolean(row?.cancel_at_period_end),
       };
