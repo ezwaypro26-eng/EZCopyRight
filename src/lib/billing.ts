@@ -4,6 +4,8 @@ import { signIn } from './auth';
 export interface BillingStatus {
   configured: boolean;
   active: boolean;
+  freeRedeemed?: boolean;
+  plan?: 'premium' | 'free3' | 'none';
   status: string;
   used: number;
   limit: number;
