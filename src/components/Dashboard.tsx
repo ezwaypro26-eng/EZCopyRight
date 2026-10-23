@@ -72,7 +72,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             )}
             <button
               onClick={onRegister}
-              disabled={Boolean(billing && !billing.active)}
+              disabled={Boolean(billing && !billing.active && !billing.freeRedeemed)}
               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
@@ -83,7 +83,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
-        {(!billing || !billing.active) && (
+        {(!billing || (!billing.active && !billing.freeRedeemed)) && (
           <div className="mb-8 rounded-2xl border border-orange-500/25 bg-orange-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-orange-400" />
@@ -97,20 +97,18 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             </button>
           </div>
         )}
-        {billing?.active && (
+        {(billing?.active || billing?.freeRedeemed) && (
           <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-emerald-400" />
               <div>
-                <p className="font-semibold text-white">EZ Copyright Membership</p>
+                <p className="font-semibold text-white">{billing.active ? 'EZ Copyright Membership' : 'FREE3 Evidence Records'}</p>
                 <p className="text-sm text-white/55">
-                  {billing.remaining} of {billing.limit} evidence records remaining this billing month
+                  {billing.remaining} of {billing.limit} evidence records remaining {billing.active ? 'this billing month' : 'in your free offer'}
                 </p>
               </div>
             </div>
-            <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">
-              Manage Billing
-            </button>
+            {billing.active && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Manage Billing</button>}
           </div>
         )}
         {!billing?.active && userEmail && (
