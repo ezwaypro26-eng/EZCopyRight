@@ -72,7 +72,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             )}
             <button
               onClick={onRegister}
-              disabled={Boolean(billing && !billing.active && !billing.freeRedeemed)}
+              disabled={Boolean(billing && billing.remaining <= 0)}
               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
@@ -108,6 +108,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
                 </p>
               </div>
             </div>
+            {!billing.active && billing.remaining === 0 && <button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade to Premium — $25/month</button>}
             {billing.active && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Manage Billing</button>}
           </div>
         )}
@@ -198,7 +199,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             <p className="text-white/40 mb-8">Document your first work to create a dated evidence record.</p>
             <button
               onClick={onRegister}
-              disabled={Boolean(billing && !billing.active)}
+              disabled={Boolean(billing && billing.remaining <= 0)}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg transition hover:scale-105 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5" />
