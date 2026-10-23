@@ -16,6 +16,7 @@ import {
 import { createWork, getWorkAudioUrl, listWorks, removeWork } from './lib/worksRepository';
 import { getBillingStatus, openBillingPortal, startCheckout, type BillingStatus } from './lib/billing';
 import { getAgentAccess } from './lib/agent';
+import { apiFetch } from './lib/api';
 
 const AUTH_TARGET_KEY = 'ezcopyright_auth_target';
 const AFTER_AUTH_KEY = 'ezcopyright_after_auth';
@@ -42,6 +43,8 @@ export default function App() {
   const [worksLoading, setWorksLoading] = useState(false);
   const [appError, setAppError] = useState('');
   const [billing, setBilling] = useState<BillingStatus | null>(null);
+  const [freeCode, setFreeCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
   const [agentAllowed, setAgentAllowed] = useState(false);
   const [postCheckout, setPostCheckout] = useState(
     () => new URLSearchParams(window.location.search).get('billing') === 'success',
@@ -218,7 +221,7 @@ export default function App() {
       beginAuth(target);
       return;
     }
-    if (target === 'register' && billing && !billing.active) {
+    if (target === 'register' && billing && !billing.active && !billing.freeRedeemed) {
       setPage('dashboard');
       return;
     }
@@ -364,6 +367,25 @@ export default function App() {
       return (
         <>
         {errorBanner}
+        {authUser && billing && !billing.active && !billing.freeRedeemed && (
+          <div className="mx-auto max-w-6xl mt-6 rounded-2xl border border-blue-500/40 bg-slate-900 p-5 text-white">
+            <h2 className="text-xl font-bold">Unlock 3 free evidence records</h2>
+            <p className="text-sm text-white/70 my-2">Enter FREE3 to claim the one-time introductory offer. No payment required.</p>
+            <form className="flex flex-wrap gap-2" onSubmit={async (event) => {
+              event.preventDefault(); setRedeeming(true); setAppError('');
+              try {
+                const response = await apiFetch('/v1/free/redeem', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: freeCode }) });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Could not redeem code.');
+                setBilling(result.billing); setFreeCode('');
+              } catch (error) { setAppError(error instanceof Error ? error.message : 'Could not redeem code.'); }
+              finally { setRedeeming(false); }
+            }}>
+              <input aria-label="Free promo code" value={freeCode} onChange={event => setFreeCode(event.target.value)} placeholder="Enter promo code" className="rounded-lg border border-white/30 bg-slate-800 px-3 py-2 text-white" />
+              <button type="submit" disabled={redeeming || !freeCode.trim()} className="rounded-lg bg-blue-600 px-4 py-2 font-semibold disabled:opacity-50">Redeem FREE3</button>
+            </form>
+          </div>
+        )}
         <Dashboard
           works={works}
           isLoading={worksLoading}
