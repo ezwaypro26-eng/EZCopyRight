@@ -19,12 +19,13 @@ interface Props {
   onLegalNavigate: (page: LegalPageId) => void;
   billing: BillingStatus | null;
   onSubscribe: () => void;
+  onAnnualCheckout: () => void;
   onManageBilling: () => void;
   agentAllowed: boolean;
   onAgent: () => void;
 }
 
-export default function Dashboard({ works, isLoading, userEmail, onBack, onRegister, onViewCertificate, onDownloadAudio, onDelete, onSignOut, onLegalNavigate, billing, onSubscribe, onManageBilling, agentAllowed, onAgent }: Props) {
+export default function Dashboard({ works, isLoading, userEmail, onBack, onRegister, onViewCertificate, onDownloadAudio, onDelete, onSignOut, onLegalNavigate, billing, onSubscribe, onAnnualCheckout, onManageBilling, agentAllowed, onAgent }: Props) {
   const [search, setSearch] = useState('');
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [marketingState, setMarketingState] = useState<'idle' | 'working' | 'subscribed' | 'error'>('idle');
@@ -83,7 +84,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
-        {(!billing || (!billing.active && !billing.freeRedeemed)) && (
+        {(!billing || (!billing.active && !billing.freeRedeemed && !(billing.annualRemaining && billing.annualRemaining > 0))) && (
           <div className="mb-8 rounded-2xl border border-orange-500/25 bg-orange-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-orange-400" />
@@ -92,23 +93,21 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
                 <p className="text-sm text-white/55">Includes 5 private evidence records each month. Promo codes can be applied at checkout.</p>
               </div>
             </div>
-            <button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">
-              Subscribe
-            </button>
+            <div className="flex gap-2 flex-wrap"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$240 once — 54 records</button></div>
           </div>
         )}
-        {(billing?.active || billing?.freeRedeemed) && (
+        {(billing?.active || billing?.freeRedeemed || Boolean(billing?.annualRemaining)) && (
           <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-emerald-400" />
               <div>
-                <p className="font-semibold text-white">{billing.active ? 'EZ Copyright Membership' : 'FREE3 Evidence Records'}</p>
+                <p className="font-semibold text-white">{billing.active ? 'EZ Copyright Membership' : billing.plan === 'annual54' ? '54 Prepaid Evidence Records' : 'FREE3 Evidence Records'}</p>
                 <p className="text-sm text-white/55">
-                  {billing.remaining} of {billing.limit} evidence records remaining {billing.active ? 'this billing month' : 'in your free offer'}
+                  {billing.remaining} of {billing.limit} evidence records remaining {billing.active ? 'this billing month' : billing.plan === 'annual54' ? '(never expire)' : 'in your free offer'}
                 </p>
               </div>
             </div>
-            {!billing.active && billing.remaining === 0 && <button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade to Premium — $25/month</button>}
+            {!billing.active && billing.remaining === 0 && <div className="flex flex-wrap gap-2"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade — $25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Buy 54 Records — $240</button></div>}
             {billing.active && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Manage Billing</button>}
           </div>
         )}
