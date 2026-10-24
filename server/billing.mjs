@@ -146,6 +146,23 @@ export function createStripeBilling(config) {
         { idempotencyKey: `checkout-${idempotencyIdentity}-${Date.now()}` },
       );
     },
+    async createAnnualCheckout({ database, userId, email }) {
+      if (!userId) throw new Error('Sign in before purchasing annual access.');
+      if (!config.stripeAnnualPriceId) throw new Error('Annual pricing is not configured.');
+      const current = await this.status(database, userId);
+      if (current.active) throw new Error('Manage your existing subscription before purchasing annual access.');
+      const existing = await database.query('SELECT stripe_customer_id FROM billing_customers WHERE user_id=$1', [userId]);
+      return requireStripe().checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price: config.stripeAnnualPriceId, quantity: 1 }],
+        subscription_data: { metadata: { application: 'ez_copyright', plan: 'annual_54', ezcopyright_user_id: userId } },
+        client_reference_id: userId,
+        ...(existing.rows[0]?.stripe_customer_id ? { customer: existing.rows[0].stripe_customer_id } : { customer_email: email || undefined }),
+        metadata: { application: 'ez_copyright', plan: 'annual_54', ezcopyright_user_id: userId },
+        success_url: `${config.appBaseUrl}/?billing=success`,
+        cancel_url: `${config.appBaseUrl}/?billing=cancelled`,
+      }, { idempotencyKey: `annual-${userId}-${Date.now()}` });
+    },
     async createPortal({ database, userId }) {
       const result = await database.query('SELECT stripe_customer_id FROM billing_customers WHERE user_id=$1', [userId]);
       if (!result.rows[0]) return null;
@@ -167,7 +184,24 @@ export function createStripeBilling(config) {
 
       try {
         const object = event.data.object;
-        if (event.type === 'checkout.session.completed' && object.subscription) {
+        if (event.type === 'invoice.paid') {
+          // Each paid annual invoice grants exactly 54 credits, including renewals.
+          // The invoice ID is the idempotency key: retries cannot grant twice.
+          const invoice = await requireStripe().invoices.retrieve(object.id, { expand: ['lines'] });
+          const invoiceSubscription = invoice.parent?.subscription_details?.subscription || invoice.subscription;
+          const subscriptionId = typeof invoiceSubscription === 'string' ? invoiceSubscription : invoiceSubscription?.id;
+          const subscription = subscriptionId ? await requireStripe().subscriptions.retrieve(subscriptionId) : null;
+          const isAnnual = subscription?.items?.data?.some((item) => item.price?.id === config.stripeAnnualPriceId);
+          if (isAnnual && invoice.status === 'paid' && invoice.amount_paid > 0) {
+            const identity = await saveSubscription(database, subscription);
+            await database.query(
+              'INSERT INTO annual_purchases (stripe_checkout_session_id,user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+              [invoice.id, identity.userId],
+            );
+          } else if (subscription) {
+            await saveSubscription(database, subscription);
+          }
+        } else if (event.type === 'checkout.session.completed' && object.subscription) {
           const subscription = await requireStripe().subscriptions.retrieve(object.subscription);
           await saveSubscription(
             database,
@@ -178,8 +212,9 @@ export function createStripeBilling(config) {
           );
         } else if (event.type.startsWith('customer.subscription.')) {
           await saveSubscription(database, object);
-        } else if (event.type === 'invoice.paid' || event.type === 'invoice.payment_failed') {
-          const subscriptionId = typeof object.subscription === 'string' ? object.subscription : object.subscription?.id;
+        } else if (event.type === 'invoice.payment_failed') {
+          const failureSubscription = object.parent?.subscription_details?.subscription || object.subscription;
+          const subscriptionId = typeof failureSubscription === 'string' ? failureSubscription : failureSubscription?.id;
           if (subscriptionId) await saveSubscription(database, await requireStripe().subscriptions.retrieve(subscriptionId));
         }
       } catch (error) {
@@ -195,22 +230,42 @@ export function createStripeBilling(config) {
       if (isOwner) {
         return {
           configured: Boolean(stripe && config.stripePriceId), active: true,
-          status: 'owner_vip', used: 0, limit: -1, remaining: -1, unlimited: true,
+          status: 'owner_vip', used: 0, limit: -1, remaining: -1, unlimited: true, plan: 'premium',
           currentPeriodEnd: null, cancelAtPeriodEnd: false,
         };
       }
+
       const result = await database.query('SELECT * FROM billing_customers WHERE user_id=$1', [userId]);
       const row = result.rows[0];
-      const active = Boolean(row && ACTIVE_STATUSES.has(row.subscription_status));
+      const subscriptionActive = Boolean(row && ACTIVE_STATUSES.has(row.subscription_status));
+      const isAnnualSubscription = row?.stripe_price_id === config.stripeAnnualPriceId;
+      const active = subscriptionActive && !isAnnualSubscription;
       const periodStart = row?.current_period_start || new Date(0);
       const usage = active
         ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1 AND date_registered >= $2', [userId, periodStart])
         : { rows: [{ count: 0 }] };
-      const used = Number(usage.rows[0].count);
+      const free = await database.query('SELECT 1 FROM free_promo_redemptions WHERE user_id=$1', [userId]);
+      const freeRedeemed = free.rows.length > 0;
+      const freeUsage = !active && freeRedeemed
+        ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1', [userId])
+        : { rows: [{ count: 0 }] };
+      const annual = await database.query(
+        'SELECT COUNT(*)::int AS purchases, MIN(purchased_at) AS first_purchase FROM annual_purchases WHERE user_id=$1',
+        [userId],
+      );
+      const annualCount = Number(annual.rows[0].purchases);
+      const annualUsage = annualCount
+        ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1 AND date_registered >= $2', [userId, annual.rows[0].first_purchase])
+        : { rows: [{ count: 0 }] };
+      const annualRemaining = Math.max(0, annualCount * 54 - Number(annualUsage.rows[0].count));
+      const hasAnnualBalance = !active && annualRemaining > 0;
+      const used = active ? Number(usage.rows[0].count) : hasAnnualBalance ? Number(annualUsage.rows[0].count) : Number(freeUsage.rows[0].count);
+      const limit = active ? config.monthlyRegistrationLimit : hasAnnualBalance ? annualCount * 54 : freeRedeemed ? 3 : 0;
       return {
-        configured: Boolean(stripe && config.stripePriceId), active, unlimited: false,
-        status: row?.subscription_status || 'inactive', used,
-        limit: config.monthlyRegistrationLimit, remaining: Math.max(0, config.monthlyRegistrationLimit - used),
+        configured: Boolean(stripe && config.stripePriceId),
+        active: subscriptionActive, unlimited: false, freeRedeemed, annualRemaining, plan: active ? 'premium' : (hasAnnualBalance || isAnnualSubscription) ? 'annual54' : freeRedeemed ? 'free3' : 'none',
+        status: row?.subscription_status || 'inactive', used, limit,
+        remaining: Math.max(0, limit - used),
         currentPeriodEnd: row?.current_period_end ? new Date(row.current_period_end).toISOString() : null,
         cancelAtPeriodEnd: Boolean(row?.cancel_at_period_end),
       };

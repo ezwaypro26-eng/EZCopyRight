@@ -75,6 +75,20 @@ ALTER TABLE billing_customers ADD COLUMN IF NOT EXISTS business_name TEXT;
 ALTER TABLE billing_customers ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
 ALTER TABLE billing_customers ADD COLUMN IF NOT EXISTS policy_version VARCHAR(32);
 
+CREATE TABLE IF NOT EXISTS free_promo_redemptions (
+  user_id TEXT PRIMARY KEY,
+  code TEXT NOT NULL CHECK (code = 'FREE3'),
+  redeemed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS annual_purchases (
+  stripe_checkout_session_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  records_granted INTEGER NOT NULL DEFAULT 54 CHECK (records_granted = 54),
+  purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS annual_purchases_user_idx ON annual_purchases(user_id, purchased_at);
+
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,
   event_type TEXT NOT NULL,
@@ -110,7 +124,7 @@ CREATE INDEX IF NOT EXISTS audit_events_user_created_idx
   ON audit_events (user_id, created_at DESC);
 `;
 
-export function createDatabase({ databaseUrl, databaseSsl, databaseSchema = 'public' }) {
+export function createDatabase({ databaseUrl, databaseSsl, databaseSchema = 'ezcopyright' }) {
   if (!/^[a-z_][a-z0-9_]*$/.test(databaseSchema)) throw new Error('Invalid DATABASE_SCHEMA');
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required to start the EZ Copyright API.');
@@ -131,7 +145,7 @@ export async function runMigrations(database) {
   try {
     await connection.query('BEGIN');
     await connection.query(migration);
-    for (const table of ['works', 'file_uploads', 'billing_customers', 'stripe_events', 'policy_consents', 'audit_events']) {
+    for (const table of ['works', 'file_uploads', 'billing_customers', 'stripe_events', 'policy_consents', 'audit_events', 'free_promo_redemptions', 'annual_purchases']) {
       await connection.query(`ALTER TABLE ${table} ENABLE ROW LEVEL SECURITY`);
     }
     await connection.query('COMMIT');
