@@ -131,6 +131,7 @@ export function createDatabase({ databaseUrl, databaseSsl }) {
 
   return new Pool({
     connectionString: databaseUrl,
+    options: '-c search_path=ezcopyright,public',
     max: 10,
     idleTimeoutMillis: 30_000,
     connectionTimeoutMillis: 10_000,
