@@ -75,6 +75,20 @@ ALTER TABLE billing_customers ADD COLUMN IF NOT EXISTS business_name TEXT;
 ALTER TABLE billing_customers ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;
 ALTER TABLE billing_customers ADD COLUMN IF NOT EXISTS policy_version VARCHAR(32);
 
+CREATE TABLE IF NOT EXISTS free_promo_redemptions (
+  user_id TEXT PRIMARY KEY,
+  code TEXT NOT NULL CHECK (code = 'FREE3'),
+  redeemed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS annual_purchases (
+  stripe_checkout_session_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  records_granted INTEGER NOT NULL DEFAULT 54 CHECK (records_granted = 54),
+  purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS annual_purchases_user_idx ON annual_purchases(user_id, purchased_at);
+
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,
   event_type TEXT NOT NULL,

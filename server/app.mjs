@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { z } from 'zod';
 import { readEasyAuthIdentity } from './auth.mjs';
+import { subscribeConsentedCreator } from './mailerlite.mjs';
 
 const STATIC_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist');
 
@@ -277,6 +278,39 @@ export function createApp({
     response.json({ id: request.auth.userId, email: request.auth.email });
   });
 
+  // Only an authenticated user explicitly opting into marketing may enter MailerLite.
+  // The email comes from the verified identity, never the request body.
+  app.post('/v1/marketing/subscribe', authenticate, writeLimiter, asyncRoute(async (request, response) => {
+    if (request.body?.consent !== true) {
+      response.status(400).json({ error: 'marketing_consent_required', requestId: request.id });
+      return;
+    }
+    if (!config.mailerliteApiKey || !config.mailerliteGroupId) {
+      response.status(503).json({ error: 'marketing_unavailable', requestId: request.id });
+      return;
+    }
+    const status = await billing.status(database, request.auth.userId);
+    if (status.active) {
+      response.status(409).json({ error: 'premium_already_active', requestId: request.id });
+      return;
+    }
+    try {
+      await subscribeConsentedCreator({
+        email: request.auth.email,
+        apiKey: config.mailerliteApiKey,
+        groupId: config.mailerliteGroupId,
+      });
+      await recordAudit(database, request, 'marketing.subscribed', 'newsletter', 'ezway-free-signups', {
+        consent: true, source: 'signed_in_dashboard',
+      });
+      response.json({ subscribed: true });
+    } catch (error) {
+      const code = error.message === 'subscriber_requires_resubscription' ? 409
+        : error.message === 'verified_email_required' ? 400 : 502;
+      response.status(code).json({ error: error.message, requestId: request.id });
+    }
+  }));
+
   app.get('/v1/agent/access', authenticate, (request, response) => {
     response.json({ allowed: isAgentAdmin(request) });
   });
@@ -305,6 +339,16 @@ export function createApp({
     response.status(201).json({ url: session.url });
   }));
 
+  app.post('/v1/billing/annual-checkout', authenticate, writeLimiter, asyncRoute(async (request, response) => {
+    const session = await billing.createAnnualCheckout({
+      database,
+      userId: request.auth.userId,
+      email: request.auth.email,
+    });
+    await recordAudit(database, request, 'billing.annual_checkout_created', 'checkout', session.id);
+    response.status(201).json({ url: session.url });
+  }));
+
   app.post('/v1/billing/portal', authenticate, writeLimiter, asyncRoute(async (request, response) => {
     const session = await billing.createPortal({ database, userId: request.auth.userId });
     if (!session) {
@@ -314,10 +358,34 @@ export function createApp({
     response.status(201).json({ url: session.url });
   }));
 
+  app.post('/v1/free/redeem', authenticate, writeLimiter, asyncRoute(async (request, response) => {
+    const code = typeof request.body?.code === 'string' ? request.body.code.trim().toUpperCase() : '';
+    if (code !== 'FREE3') {
+      response.status(400).json({ error: 'invalid_free_code', requestId: request.id });
+      return;
+    }
+    const current = await billing.status(database, request.auth.userId);
+    if (current.active) {
+      response.status(409).json({ error: 'premium_already_active', requestId: request.id });
+      return;
+    }
+    if (current.freeRedeemed) {
+      response.status(409).json({ error: 'free_code_already_redeemed', billing: current, requestId: request.id });
+      return;
+    }
+    // Existing records count toward the three complimentary records.
+    await database.query(
+      "INSERT INTO free_promo_redemptions (user_id, code) VALUES ($1, 'FREE3') ON CONFLICT DO NOTHING",
+      [request.auth.userId],
+    );
+    const result = await billing.status(database, request.auth.userId);
+    response.json({ redeemed: true, billing: result });
+  }));
+
   async function requireRegistrationAllowance(request, response) {
     const status = await billing.status(database, request.auth.userId);
-    if (!status.active) {
-      response.status(402).json({ error: 'subscription_required', billing: status, requestId: request.id });
+    if (!status.active && !status.freeRedeemed && status.annualRemaining <= 0) {
+      response.status(402).json({ error: 'subscription_or_free3_required', billing: status, requestId: request.id });
       return false;
     }
     if (status.remaining < 1) {

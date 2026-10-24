@@ -1,5 +1,6 @@
 import { ArrowLeft, Plus, Fingerprint, Calendar, Music2, Eye, Trash2, Search, FileAudio, Download, CreditCard, Bot } from 'lucide-react';
 import { useState } from 'react';
+import { apiFetch } from '../lib/api';
 import { formatFileSize } from '../utils/crypto';
 import type { LegalPageId, MusicalWork } from '../types';
 import LegalFooter from './LegalFooter';
@@ -18,13 +19,16 @@ interface Props {
   onLegalNavigate: (page: LegalPageId) => void;
   billing: BillingStatus | null;
   onSubscribe: () => void;
+  onAnnualCheckout: () => void;
   onManageBilling: () => void;
   agentAllowed: boolean;
   onAgent: () => void;
 }
 
-export default function Dashboard({ works, isLoading, userEmail, onBack, onRegister, onViewCertificate, onDownloadAudio, onDelete, onSignOut, onLegalNavigate, billing, onSubscribe, onManageBilling, agentAllowed, onAgent }: Props) {
+export default function Dashboard({ works, isLoading, userEmail, onBack, onRegister, onViewCertificate, onDownloadAudio, onDelete, onSignOut, onLegalNavigate, billing, onSubscribe, onAnnualCheckout, onManageBilling, agentAllowed, onAgent }: Props) {
   const [search, setSearch] = useState('');
+  const [marketingConsent, setMarketingConsent] = useState(false);
+  const [marketingState, setMarketingState] = useState<'idle' | 'working' | 'subscribed' | 'error'>('idle');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const filtered = works.filter(w =>
@@ -69,7 +73,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             )}
             <button
               onClick={onRegister}
-              disabled={Boolean(billing && !billing.active)}
+              disabled={Boolean(billing && billing.remaining <= 0)}
               className="flex items-center gap-2 bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4" />
@@ -80,7 +84,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
-        {(!billing || !billing.active) && (
+        {(!billing || (!billing.active && !billing.freeRedeemed && !(billing.annualRemaining && billing.annualRemaining > 0))) && (
           <div className="mb-8 rounded-2xl border border-orange-500/25 bg-orange-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-orange-400" />
@@ -89,26 +93,48 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
                 <p className="text-sm text-white/55">Includes 5 private evidence records each month. Promo codes can be applied at checkout.</p>
               </div>
             </div>
-            <button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">
-              Subscribe
-            </button>
+            <div className="flex gap-2 flex-wrap"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$240 once — 54 records</button></div>
           </div>
         )}
-        {billing?.active && (
+        {(billing?.active || billing?.freeRedeemed || Boolean(billing?.annualRemaining)) && (
           <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-emerald-400" />
               <div>
-                <p className="font-semibold text-white">EZ Copyright Membership</p>
+                <p className="font-semibold text-white">{billing.active ? 'EZ Copyright Membership' : billing.plan === 'annual54' ? '54 Prepaid Evidence Records' : 'FREE3 Evidence Records'}</p>
                 <p className="text-sm text-white/55">
-                  {billing.remaining} of {billing.limit} evidence records remaining this billing month
+                  {billing.remaining} of {billing.limit} evidence records remaining {billing.active ? 'this billing month' : billing.plan === 'annual54' ? '(never expire)' : 'in your free offer'}
                 </p>
               </div>
             </div>
-            <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">
-              Manage Billing
-            </button>
+            {!billing.active && billing.remaining === 0 && <div className="flex flex-wrap gap-2"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade — $25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Buy 54 Records — $240</button></div>}
+            {billing.active && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Manage Billing</button>}
           </div>
+        )}
+        {!billing?.active && userEmail && (
+          <section aria-label="Music creator updates" className="mb-8 rounded-2xl border border-white/15 bg-white/5 p-5">
+            <h2 className="text-lg font-semibold text-white">Get music creator tips and vault updates</h2>
+            <p className="text-sm text-white/60 mt-2">Optional emails about documenting tracks, protecting your creative timeline, and membership offers. Not required to use your account.</p>
+            {marketingState === 'subscribed' ? (
+              <p role="status" className="text-sm text-emerald-400 mt-3">Subscribed! Check your inbox for updates.</p>
+            ) : (
+              <>
+                <label className="mt-4 flex gap-3 items-start text-sm text-white/80">
+                  <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)} className="mt-1" />
+                  Yes, send me optional EZwayCopyrights marketing emails. I can unsubscribe at any time.
+                </label>
+                <button type="button" disabled={!marketingConsent || marketingState === 'working'} className="mt-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 text-sm font-semibold disabled:opacity-40" onClick={async () => {
+                  setMarketingState('working');
+                  try {
+                    const result = await apiFetch('/v1/marketing/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consent: true }) });
+                    if (!result.ok) throw new Error('The signup could not be completed. Please try again later.');
+                    setMarketingState('subscribed');
+                  } catch { setMarketingState('error'); }
+                }}>Subscribe to updates</button>
+                {marketingState === 'error' && <p role="alert" className="mt-2 text-sm text-red-300">The signup could not be completed. Please try again later.</p>}
+              </>
+            )}
+          </section>
         )}
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
@@ -172,7 +198,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             <p className="text-white/40 mb-8">Document your first work to create a dated evidence record.</p>
             <button
               onClick={onRegister}
-              disabled={Boolean(billing && !billing.active)}
+              disabled={Boolean(billing && billing.remaining <= 0)}
               className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg transition hover:scale-105 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-5 h-5" />
