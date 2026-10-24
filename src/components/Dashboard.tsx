@@ -96,7 +96,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             <div className="flex gap-2 flex-wrap"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$240/year — 54 records</button></div>
           </div>
         )}
-        {(billing?.active || billing?.freeRedeemed || Boolean(billing?.annualRemaining)) && (
+        {(billing && (billing.active || billing.freeRedeemed || Boolean(billing.annualRemaining))) && (
           <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3">
               <CreditCard className="text-emerald-400" />
