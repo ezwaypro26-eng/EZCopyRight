@@ -1,6 +1,5 @@
-import { ArrowLeft, Plus, Fingerprint, Calendar, Music2, Eye, Trash2, Search, FileAudio, Download, CreditCard, Bot } from 'lucide-react';
+import { ArrowLeft, Plus, Fingerprint, Calendar, Music2, Eye, Trash2, Search, FileAudio, Download, Bot } from 'lucide-react';
 import { useState } from 'react';
-import { apiFetch } from '../lib/api';
 import { formatFileSize } from '../utils/crypto';
 import type { LegalPageId, MusicalWork } from '../types';
 import LegalFooter from './LegalFooter';
@@ -25,10 +24,8 @@ interface Props {
   onAgent: () => void;
 }
 
-export default function Dashboard({ works, isLoading, userEmail, onBack, onRegister, onViewCertificate, onDownloadAudio, onDelete, onSignOut, onLegalNavigate, billing, onSubscribe, onAnnualCheckout, onManageBilling, agentAllowed, onAgent }: Props) {
+export default function Dashboard({ works, isLoading, userEmail, onBack, onRegister, onViewCertificate, onDownloadAudio, onDelete, onSignOut, onLegalNavigate, billing, agentAllowed, onAgent }: Props) {
   const [search, setSearch] = useState('');
-  const [marketingConsent, setMarketingConsent] = useState(false);
-  const [marketingState, setMarketingState] = useState<'idle' | 'working' | 'subscribed' | 'error'>('idle');
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const filtered = works.filter(w =>
@@ -84,58 +81,6 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
       </div>
 
       <div className="max-w-6xl mx-auto px-4 py-8 sm:py-12">
-        {(!billing || (!billing.active && !billing.freeRedeemed && !(billing.annualRemaining && billing.annualRemaining > 0))) && (
-          <div className="mb-8 rounded-2xl border border-orange-500/25 bg-orange-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <CreditCard className="text-orange-400" />
-              <div>
-                <p className="font-semibold text-white">$25.00 monthly membership</p>
-                <p className="text-sm text-white/55">Includes 5 private evidence records each month. Promo codes can be applied at checkout.</p>
-              </div>
-            </div>
-            <div className="flex gap-2 flex-wrap"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$240/year — 54 records</button></div>
-          </div>
-        )}
-        {(billing && (billing.active || billing.freeRedeemed || Boolean(billing.annualRemaining))) && (
-          <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start gap-3">
-              <CreditCard className="text-emerald-400" />
-              <div>
-                <p className="font-semibold text-white">{billing.unlimited ? 'VIP Owner Membership — Unlimited' : billing.plan === 'annual54' ? 'Annual Plan — 54 records per paid year' : billing.active ? 'EZ Copyright Membership' : 'FREE3 Evidence Records'}</p>
-                <p className="text-sm text-white/55">
-                  {billing.unlimited ? 'Unlimited private evidence records' : `${billing.remaining} of ${billing.limit} evidence records remaining ${billing.plan === 'annual54' ? '(unused credits never expire)' : billing.active ? 'this billing month' : 'in your free offer'}`}
-                </p>
-              </div>
-            </div>
-            {!billing.active && billing.remaining === 0 && <div className="flex flex-wrap gap-2"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade — $25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Annual Plan — $240/year</button></div>}
-            {billing.active && !billing.unlimited && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Manage Billing</button>}
-          </div>
-        )}
-        {!billing?.active && userEmail && (
-          <section aria-label="Music creator updates" className="mb-8 rounded-2xl border border-white/15 bg-white/5 p-5">
-            <h2 className="text-lg font-semibold text-white">Get music creator tips and vault updates</h2>
-            <p className="text-sm text-white/60 mt-2">Optional emails about documenting tracks, protecting your creative timeline, and membership offers. Not required to use your account.</p>
-            {marketingState === 'subscribed' ? (
-              <p role="status" className="text-sm text-emerald-400 mt-3">Subscribed! Check your inbox for updates.</p>
-            ) : (
-              <>
-                <label className="mt-4 flex gap-3 items-start text-sm text-white/80">
-                  <input type="checkbox" checked={marketingConsent} onChange={e => setMarketingConsent(e.target.checked)} className="mt-1" />
-                  Yes, send me optional EZwayCopyrights marketing emails. I can unsubscribe at any time.
-                </label>
-                <button type="button" disabled={!marketingConsent || marketingState === 'working'} className="mt-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-5 py-2 text-sm font-semibold disabled:opacity-40" onClick={async () => {
-                  setMarketingState('working');
-                  try {
-                    const result = await apiFetch('/v1/marketing/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consent: true }) });
-                    if (!result.ok) throw new Error('The signup could not be completed. Please try again later.');
-                    setMarketingState('subscribed');
-                  } catch { setMarketingState('error'); }
-                }}>Subscribe to updates</button>
-                {marketingState === 'error' && <p role="alert" className="mt-2 text-sm text-red-300">The signup could not be completed. Please try again later.</p>}
-              </>
-            )}
-          </section>
-        )}
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Playfair Display, serif' }}>
             Your Evidence Records
