@@ -85,7 +85,7 @@ export function loadConfig(environment = process.env) {
     stripeSecretKey: environment.STRIPE_SECRET_KEY?.trim() || '',
     stripeWebhookSecret: environment.STRIPE_WEBHOOK_SECRET?.trim() || '',
     stripePriceId: environment.STRIPE_PRICE_ID?.trim() || '',
-    stripeAnnualPriceId: environment.STRIPE_ANNUAL_PRICE_ID?.trim() || 'price_1UTrn0IgHJywqbkkuI2A6af8',
+    stripeAnnualPriceId: environment.STRIPE_ANNUAL_PRICE_ID?.trim() || 'price_1UTvOkIgHJywqbkkLZTTg2FR',
     mailerliteApiKey: environment.MAILERLITE_API_KEY?.trim() || '',
     mailerliteGroupId: environment.MAILERLITE_GROUP_ID?.trim() || '',
     monthlyRegistrationLimit: Number.parseInt(environment.MONTHLY_REGISTRATION_LIMIT || '5', 10),
