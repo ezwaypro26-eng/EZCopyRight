@@ -108,6 +108,11 @@ export default function App() {
     sessionStorage.removeItem(AUTH_TARGET_KEY);
     sessionStorage.removeItem(AFTER_AUTH_KEY);
 
+    if (afterAuth === 'annual-checkout') {
+      void startAnnualCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Annual checkout could not be opened.'));
+      return;
+    }
+
     if (afterAuth === 'checkout') {
       void startCheckout().catch((error) => {
         setAppError(error instanceof Error ? error.message : 'Checkout could not be opened.');
@@ -207,7 +212,7 @@ export default function App() {
     };
   }, [authUser]);
 
-  const beginAuth = (target: 'register' | 'dashboard', afterAuth?: 'checkout') => {
+  const beginAuth = (target: 'register' | 'dashboard', afterAuth?: 'checkout' | 'annual-checkout') => {
     sessionStorage.setItem(AUTH_TARGET_KEY, target);
     if (afterAuth) sessionStorage.setItem(AFTER_AUTH_KEY, afterAuth);
     void signIn('/').catch((error) => {
@@ -262,6 +267,12 @@ export default function App() {
     } catch (error) {
       setAppError(error instanceof Error ? error.message : 'The stored audio could not be downloaded.');
     }
+  };
+
+  const handleAnnualSubscribe = () => {
+    setAppError('');
+    if (!authUser) { beginAuth('dashboard', 'annual-checkout'); return; }
+    void startAnnualCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Annual checkout could not be opened.'));
   };
 
   const handleSubscribe = () => {
@@ -327,6 +338,7 @@ export default function App() {
           <LandingHero
             onNavigate={navigateProtected}
             onSubscribe={handleSubscribe}
+            onAnnualCheckout={handleAnnualSubscribe}
             hasActiveMembership={Boolean(billing?.active)}
             workCount={works.length}
             isAuthenticated={Boolean(authUser)}
