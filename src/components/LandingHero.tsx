@@ -6,6 +6,7 @@ import LegalFooter from './LegalFooter';
 interface Props {
   onNavigate: (page: 'register' | 'dashboard') => void;
   onSubscribe: () => void;
+  onAnnualCheckout: () => void;
   hasActiveMembership: boolean;
   workCount: number;
   isAuthenticated: boolean;
@@ -19,6 +20,7 @@ interface Props {
 export default function LandingHero({
   onNavigate,
   onSubscribe,
+  onAnnualCheckout,
   hasActiveMembership,
   workCount,
   isAuthenticated,
