@@ -146,6 +146,21 @@ export function createStripeBilling(config) {
         { idempotencyKey: `checkout-${idempotencyIdentity}-${Date.now()}` },
       );
     },
+    async createAnnualCheckout({ database, userId, email }) {
+      if (!userId) throw new Error('Sign in before purchasing annual access.');
+      if (!config.stripeAnnualPriceId) throw new Error('Annual pricing is not configured.');
+      const current = await this.status(database, userId);
+      if (current.active) throw new Error('Manage your existing monthly plan before purchasing annual access.');
+      return requireStripe().checkout.sessions.create({
+        mode: 'payment',
+        line_items: [{ price: config.stripeAnnualPriceId, quantity: 1 }],
+        client_reference_id: userId,
+        customer_email: email || undefined,
+        metadata: { application: 'ez_copyright', plan: 'prepaid_54', ezcopyright_user_id: userId },
+        success_url: `${config.appBaseUrl}/?billing=success`,
+        cancel_url: `${config.appBaseUrl}/?billing=cancelled`,
+      }, { idempotencyKey: `annual-${userId}-${Date.now()}` });
+    },
     async createPortal({ database, userId }) {
       const result = await database.query('SELECT stripe_customer_id FROM billing_customers WHERE user_id=$1', [userId]);
       if (!result.rows[0]) return null;
@@ -167,7 +182,16 @@ export function createStripeBilling(config) {
 
       try {
         const object = event.data.object;
-        if (event.type === 'checkout.session.completed' && object.subscription) {
+        if (event.type === 'checkout.session.completed' && object.mode === 'payment' && object.payment_status === 'paid' && object.metadata?.plan === 'prepaid_54') {
+          const session = await requireStripe().checkout.sessions.retrieve(object.id, { expand: ['line_items'] });
+          const validPrice = session.line_items?.data?.some((line) => line.price?.id === config.stripeAnnualPriceId && line.quantity === 1);
+          const userId = object.client_reference_id;
+          if (!userId || object.metadata?.ezcopyright_user_id !== userId || !validPrice) throw new Error('Annual checkout validation failed.');
+          await database.query(
+            'INSERT INTO annual_purchases (stripe_checkout_session_id,user_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+            [object.id, userId],
+          );
+        } else if (event.type === 'checkout.session.completed' && object.subscription) {
           const subscription = await requireStripe().subscriptions.retrieve(object.subscription);
           await saveSubscription(
             database,
@@ -200,11 +224,21 @@ export function createStripeBilling(config) {
       const freeUsage = !active && freeRedeemed
         ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1', [userId])
         : { rows: [{ count: 0 }] };
-      const used = active ? Number(usage.rows[0].count) : Number(freeUsage.rows[0].count);
-      const limit = active ? config.monthlyRegistrationLimit : freeRedeemed ? 3 : 0;
+      const annual = await database.query(
+        'SELECT COUNT(*)::int AS purchases, MIN(purchased_at) AS first_purchase FROM annual_purchases WHERE user_id=$1',
+        [userId],
+      );
+      const annualCount = Number(annual.rows[0].purchases);
+      const annualUsage = !active && annualCount
+        ? await database.query('SELECT COUNT(*)::int AS count FROM works WHERE user_id=$1 AND date_registered >= $2', [userId, annual.rows[0].first_purchase])
+        : { rows: [{ count: 0 }] };
+      const annualRemaining = Math.max(0, annualCount * 54 - Number(annualUsage.rows[0].count));
+      const hasAnnualBalance = !active && annualRemaining > 0;
+      const used = active ? Number(usage.rows[0].count) : hasAnnualBalance ? Number(annualUsage.rows[0].count) : Number(freeUsage.rows[0].count);
+      const limit = active ? config.monthlyRegistrationLimit : hasAnnualBalance ? annualCount * 54 : freeRedeemed ? 3 : 0;
       return {
         configured: Boolean(stripe && config.stripePriceId),
-        active, freeRedeemed, plan: active ? 'premium' : freeRedeemed ? 'free3' : 'none',
+        active, freeRedeemed, annualRemaining, plan: active ? 'premium' : hasAnnualBalance ? 'annual54' : freeRedeemed ? 'free3' : 'none',
         status: row?.subscription_status || 'inactive', used, limit,
         remaining: Math.max(0, limit - used),
         currentPeriodEnd: row?.current_period_end ? new Date(row.current_period_end).toISOString() : null,
