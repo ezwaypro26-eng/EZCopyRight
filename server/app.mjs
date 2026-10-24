@@ -339,6 +339,16 @@ export function createApp({
     response.status(201).json({ url: session.url });
   }));
 
+  app.post('/v1/billing/annual-checkout', authenticate, writeLimiter, asyncRoute(async (request, response) => {
+    const session = await billing.createAnnualCheckout({
+      database,
+      userId: request.auth.userId,
+      email: request.auth.email,
+    });
+    await recordAudit(database, request, 'billing.annual_checkout_created', 'checkout', session.id);
+    response.status(201).json({ url: session.url });
+  }));
+
   app.post('/v1/billing/portal', authenticate, writeLimiter, asyncRoute(async (request, response) => {
     const session = await billing.createPortal({ database, userId: request.auth.userId });
     if (!session) {
@@ -374,7 +384,7 @@ export function createApp({
 
   async function requireRegistrationAllowance(request, response) {
     const status = await billing.status(database, request.auth.userId);
-    if (!status.active && !status.freeRedeemed) {
+    if (!status.active && !status.freeRedeemed && status.annualRemaining <= 0) {
       response.status(402).json({ error: 'subscription_or_free3_required', billing: status, requestId: request.id });
       return false;
     }
