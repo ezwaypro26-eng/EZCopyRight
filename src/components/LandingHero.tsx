@@ -6,6 +6,7 @@ import LegalFooter from './LegalFooter';
 interface Props {
   onNavigate: (page: 'register' | 'dashboard') => void;
   onSubscribe: () => void;
+  onAnnualCheckout: () => void;
   hasActiveMembership: boolean;
   workCount: number;
   isAuthenticated: boolean;
@@ -19,6 +20,7 @@ interface Props {
 export default function LandingHero({
   onNavigate,
   onSubscribe,
+  onAnnualCheckout,
   hasActiveMembership,
   workCount,
   isAuthenticated,
@@ -266,6 +268,7 @@ export default function LandingHero({
               {hasActiveMembership ? 'Create an Evidence Record' : 'Start Membership — $25/month'}
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
+            {!hasActiveMembership && <button type="button" onClick={onAnnualCheckout} className="inline-flex items-center justify-center rounded-2xl border border-blue-400/50 px-6 py-4 text-white font-semibold hover:bg-blue-500/20 cursor-pointer">$240/year — 54 records annually, unused credits roll over</button>}
           </div>
         </div>
       </div>
