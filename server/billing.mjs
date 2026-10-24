@@ -188,7 +188,8 @@ export function createStripeBilling(config) {
           // Each paid annual invoice grants exactly 54 credits, including renewals.
           // The invoice ID is the idempotency key: retries cannot grant twice.
           const invoice = await requireStripe().invoices.retrieve(object.id, { expand: ['lines'] });
-          const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+          const invoiceSubscription = invoice.parent?.subscription_details?.subscription || invoice.subscription;
+          const subscriptionId = typeof invoiceSubscription === 'string' ? invoiceSubscription : invoiceSubscription?.id;
           const subscription = subscriptionId ? await requireStripe().subscriptions.retrieve(subscriptionId) : null;
           const isAnnual = subscription?.items?.data?.some((item) => item.price?.id === config.stripeAnnualPriceId);
           if (isAnnual && invoice.status === 'paid' && invoice.amount_paid > 0) {
@@ -212,7 +213,8 @@ export function createStripeBilling(config) {
         } else if (event.type.startsWith('customer.subscription.')) {
           await saveSubscription(database, object);
         } else if (event.type === 'invoice.payment_failed') {
-          const subscriptionId = typeof object.subscription === 'string' ? object.subscription : object.subscription?.id;
+          const failureSubscription = object.parent?.subscription_details?.subscription || object.subscription;
+          const subscriptionId = typeof failureSubscription === 'string' ? failureSubscription : failureSubscription?.id;
           if (subscriptionId) await saveSubscription(database, await requireStripe().subscriptions.retrieve(subscriptionId));
         }
       } catch (error) {
