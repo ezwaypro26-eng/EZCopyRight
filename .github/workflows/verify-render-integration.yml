@@ -1,0 +1,21 @@
+name: Verify Render Integration
+on:
+  push:
+    branches: [integration/annual-render-live]
+  pull_request:
+    branches: [prepare/render-supabase]
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:api
+      - run: npm run build
