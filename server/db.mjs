@@ -81,6 +81,14 @@ CREATE TABLE IF NOT EXISTS free_promo_redemptions (
   redeemed_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS annual_purchases (
+  stripe_checkout_session_id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  records_granted INTEGER NOT NULL DEFAULT 54 CHECK (records_granted = 54),
+  purchased_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS annual_purchases_user_idx ON annual_purchases(user_id, purchased_at);
+
 CREATE TABLE IF NOT EXISTS stripe_events (
   id TEXT PRIMARY KEY,
   event_type TEXT NOT NULL,
