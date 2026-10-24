@@ -155,6 +155,7 @@ export function createStripeBilling(config) {
       return requireStripe().checkout.sessions.create({
         mode: 'subscription',
         line_items: [{ price: config.stripeAnnualPriceId, quantity: 1 }],
+        allow_promotion_codes: true,
         subscription_data: { metadata: { application: 'ez_copyright', plan: 'annual_54', ezcopyright_user_id: userId } },
         client_reference_id: userId,
         ...(existing.rows[0]?.stripe_customer_id ? { customer: existing.rows[0].stripe_customer_id } : { customer_email: email || undefined }),
