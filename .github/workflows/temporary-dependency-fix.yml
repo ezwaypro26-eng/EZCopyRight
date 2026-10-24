@@ -1,0 +1,33 @@
+name: Temporary Dependency Fix
+on:
+  push:
+    branches: [integration/annual-render-live]
+    paths: ['.github/workflows/temporary-dependency-fix.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: integration/annual-render-live
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm audit fix
+      - run: npm run typecheck
+      - run: npm run test:api
+      - run: npm run build
+      - name: Commit dependency security fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: refresh vulnerable locked dependencies"
+            git push origin HEAD:integration/annual-render-live
+          fi
