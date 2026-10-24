@@ -326,6 +326,47 @@ export default function LandingHero({
         </div>
       </div>
 
+      {/* Membership descriptions — landing page only */}
+      <section className="bg-neutral-900 py-24 border-t border-white/10" aria-labelledby="memberships-heading">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 id="memberships-heading" className="text-3xl sm:text-4xl font-bold text-white text-center mb-12" style={{ fontFamily: 'Playfair Display, serif' }}>
+            EZwayCopyrights Memberships
+          </h2>
+          <div className="grid lg:grid-cols-2 gap-8">
+            <div className="rounded-3xl border border-white/15 bg-white/5 p-8 sm:p-10">
+              <h3 className="text-2xl font-bold text-white mb-2">EZwayCopyrights Monthly Membership</h3>
+              <p className="text-xs font-bold tracking-widest text-orange-400 mb-3">MONTHLY PLAN</p>
+              <p className="text-4xl font-bold text-white mb-6">$25 <span className="text-base font-normal text-white/60">/month</span></p>
+              <p className="text-white/75 mb-4">With your monthly membership, you get:</p>
+              <ul className="space-y-3 text-white/70 list-disc pl-5 leading-relaxed">
+                <li>5 evidence records per month to document your music creations.</li>
+                <li>SHA-256 digital fingerprints to help document the integrity of your work.</li>
+                <li>Dated evidence certificates for your music and creative works.</li>
+                <li>Private evidence storage for your records.</li>
+                <li>Automatic monthly renewal at $25 per month.</li>
+                <li>Promotion-code support during Stripe Checkout.</li>
+              </ul>
+            </div>
+            <div className="rounded-3xl border border-orange-500/30 bg-orange-500/10 p-8 sm:p-10">
+              <h3 className="text-2xl font-bold text-white mb-2">EZwayCopyrights Annual Membership</h3>
+              <p className="text-xs font-bold tracking-widest text-orange-400 mb-3">ANNUAL PLAN</p>
+              <p className="text-4xl font-bold text-white mb-2">$240 <span className="text-base font-normal text-white/60">/year</span></p>
+              <p className="text-amber-300 font-semibold mb-6">Save $60 per year</p>
+              <p className="text-white/75 mb-4">With your annual membership, you get:</p>
+              <ul className="space-y-3 text-white/70 list-disc pl-5 leading-relaxed">
+                <li>54 evidence records per year to document your music creations.</li>
+                <li>Rollover credits: Unused evidence records never expire.</li>
+                <li>SHA-256 digital fingerprints to help document the integrity of your work.</li>
+                <li>Dated evidence certificates for your music and creative works.</li>
+                <li>Private evidence storage for your records.</li>
+                <li>Automatic annual renewal at $240 per year.</li>
+                <li>Promotion-code support during Stripe Checkout.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <LegalFooter onNavigate={onLegalNavigate} showBrand />
     </div>
   );
