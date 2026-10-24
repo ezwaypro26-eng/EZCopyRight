@@ -14,7 +14,7 @@ import {
   type AuthUser,
 } from './lib/auth';
 import { createWork, getWorkAudioUrl, listWorks, removeWork } from './lib/worksRepository';
-import { getBillingStatus, openBillingPortal, startCheckout, type BillingStatus } from './lib/billing';
+import { getBillingStatus, openBillingPortal, startCheckout, startAnnualCheckout, type BillingStatus } from './lib/billing';
 import { getAgentAccess } from './lib/agent';
 import { apiFetch } from './lib/api';
 
@@ -402,6 +402,7 @@ export default function App() {
           }}
           onLegalNavigate={navigateLegal}
           billing={billing}
+          onAnnualCheckout={() => { void startAnnualCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Annual checkout could not be opened.')); }}
           onSubscribe={() => {
             void startCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Checkout could not be opened.'));
           }}
@@ -440,7 +441,8 @@ export default function App() {
             onSignOut={() => { void handleSignOut(); }}
             onLegalNavigate={navigateLegal}
             billing={billing}
-            onSubscribe={() => { void startCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Checkout could not be opened.')); }}
+            onAnnualCheckout={() => { void startAnnualCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Annual checkout could not be opened.')); }}
+          onSubscribe={() => { void startCheckout().catch((error) => setAppError(error instanceof Error ? error.message : 'Checkout could not be opened.')); }}
             onManageBilling={() => { void openBillingPortal().catch((error) => setAppError(error instanceof Error ? error.message : 'Billing could not be opened.')); }}
             agentAllowed={agentAllowed}
             onAgent={() => setPage('agent')}
