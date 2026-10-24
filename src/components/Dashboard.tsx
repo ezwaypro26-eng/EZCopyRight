@@ -93,7 +93,7 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
                 <p className="text-sm text-white/55">Includes 5 private evidence records each month. Promo codes can be applied at checkout.</p>
               </div>
             </div>
-            <div className="flex gap-2 flex-wrap"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$240 once — 54 records</button></div>
+            <div className="flex gap-2 flex-wrap"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">$240/year — 54 records</button></div>
           </div>
         )}
         {(billing?.active || billing?.freeRedeemed || Boolean(billing?.annualRemaining)) && (
@@ -101,13 +101,13 @@ export default function Dashboard({ works, isLoading, userEmail, onBack, onRegis
             <div className="flex items-start gap-3">
               <CreditCard className="text-emerald-400" />
               <div>
-                <p className="font-semibold text-white">{billing.active ? 'EZ Copyright Membership' : billing.plan === 'annual54' ? '54 Prepaid Evidence Records' : 'FREE3 Evidence Records'}</p>
+                <p className="font-semibold text-white">{billing.active ? 'EZ Copyright Membership' : billing.plan === 'annual54' ? 'Annual Plan — 54 records per paid year' : 'FREE3 Evidence Records'}</p>
                 <p className="text-sm text-white/55">
-                  {billing.remaining} of {billing.limit} evidence records remaining {billing.active ? 'this billing month' : billing.plan === 'annual54' ? '(never expire)' : 'in your free offer'}
+                  {billing.remaining} of {billing.limit} evidence records remaining {billing.plan === 'annual54' ? '(unused credits never expire)' : billing.active ? 'this billing month' : 'in your free offer'}
                 </p>
               </div>
             </div>
-            {!billing.active && billing.remaining === 0 && <div className="flex flex-wrap gap-2"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade — $25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Buy 54 Records — $240</button></div>}
+            {!billing.active && billing.remaining === 0 && <div className="flex flex-wrap gap-2"><button onClick={onSubscribe} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Upgrade — $25/month</button><button onClick={onAnnualCheckout} className="rounded-xl bg-blue-600 hover:bg-blue-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Annual Plan — $240/year</button></div>}
             {billing.active && <button onClick={onManageBilling} className="rounded-xl bg-orange-600 hover:bg-orange-500 px-4 py-2 text-sm font-medium text-white cursor-pointer">Manage Billing</button>}
           </div>
         )}
