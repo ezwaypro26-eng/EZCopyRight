@@ -141,7 +141,7 @@ export default function LandingHero({
                 className="group flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-8 py-4 rounded-2xl text-lg font-semibold shadow-2xl shadow-orange-900/50 transition-all duration-300 hover:scale-105 hover:shadow-orange-800/60 cursor-pointer"
               >
                 <Music className="w-5 h-5" />
-                Subscribe
+                Join Now
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -251,7 +251,7 @@ export default function LandingHero({
               className="group inline-flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white px-10 py-4 rounded-2xl text-lg font-semibold shadow-2xl shadow-orange-900/50 transition-all duration-300 hover:scale-105 cursor-pointer"
             >
               <Zap className="w-5 h-5" />
-              Subscribe
+              Join Now
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
           </div>
