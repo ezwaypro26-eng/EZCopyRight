@@ -2,6 +2,10 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import Stripe from 'stripe';
 
 const ACTIVE_STATUSES = new Set(['active', 'trialing']);
+const ANNUAL_UPSELL_PRICE_ID = 'price_1UTxxzIgHJywqbkk3Z6jszVm';
+function isAnnualPrice(priceId, config) {
+  return Boolean(priceId && (priceId === ANNUAL_UPSELL_PRICE_ID || priceId === config.stripeAnnualPriceId));
+}
 
 function period(subscription) {
   const item = subscription.items?.data?.[0];
@@ -192,7 +196,7 @@ export function createStripeBilling(config) {
           const invoiceSubscription = invoice.parent?.subscription_details?.subscription || invoice.subscription;
           const subscriptionId = typeof invoiceSubscription === 'string' ? invoiceSubscription : invoiceSubscription?.id;
           const subscription = subscriptionId ? await requireStripe().subscriptions.retrieve(subscriptionId) : null;
-          const isAnnual = subscription?.items?.data?.some((item) => item.price?.id === config.stripeAnnualPriceId);
+          const isAnnual = subscription?.items?.data?.some((item) => isAnnualPrice(item.price?.id, config));
           if (isAnnual && invoice.status === 'paid' && invoice.amount_paid > 0) {
             const identity = await saveSubscription(database, subscription);
             await database.query(
@@ -239,7 +243,7 @@ export function createStripeBilling(config) {
       const result = await database.query('SELECT * FROM billing_customers WHERE user_id=$1', [userId]);
       const row = result.rows[0];
       const subscriptionActive = Boolean(row && ACTIVE_STATUSES.has(row.subscription_status));
-      const isAnnualSubscription = row?.stripe_price_id === config.stripeAnnualPriceId;
+      const isAnnualSubscription = isAnnualPrice(row?.stripe_price_id, config);
       const active = subscriptionActive && !isAnnualSubscription;
       const periodStart = row?.current_period_start || new Date(0);
       const usage = active
