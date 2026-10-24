@@ -5,7 +5,8 @@ export interface BillingStatus {
   configured: boolean;
   active: boolean;
   freeRedeemed?: boolean;
-  plan?: 'premium' | 'free3' | 'none';
+  annualRemaining?: number;
+  plan?: 'premium' | 'annual54' | 'free3' | 'none';
   status: string;
   used: number;
   limit: number;
@@ -64,7 +65,7 @@ export async function getBillingStatus(): Promise<BillingStatus> {
 }
 
 async function invokeBillingEndpoint(
-  path: '/v1/billing/checkout' | '/v1/billing/portal',
+  path: '/v1/billing/checkout' | '/v1/billing/annual-checkout' | '/v1/billing/portal',
 ): Promise<string> {
   const data = await apiRequest<{ url?: string }>(path, {
     method: 'POST',
@@ -84,5 +85,10 @@ export async function startCheckout() {
 
 export async function openBillingPortal() {
   const url = await invokeBillingEndpoint('/v1/billing/portal');
+  window.location.assign(url);
+}
+
+export async function startAnnualCheckout() {
+  const url = await invokeBillingEndpoint('/v1/billing/annual-checkout');
   window.location.assign(url);
 }
